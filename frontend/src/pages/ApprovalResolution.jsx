@@ -45,7 +45,7 @@ export default function ApprovalResolution({
 
   const getStatusBadge = () => {
     if (status === 'merged') {
-      return <span className="text-[#3fb950] font-bold bg-[#113216] border border-[#238636] px-3 py-1 rounded font-mono text-xs">Merged into main</span>;
+      return <span className="text-[#3fb950] font-bold bg-[#113216] border border-[#238636] px-3 py-1 rounded font-mono text-xs">Merged into main ✓</span>;
     }
     if (status === 'discarded') {
       return <span className="text-[#f85149] font-bold bg-[#3c1e1e] border border-[#7d2727] px-3 py-1 rounded font-mono text-xs">Remediation discarded</span>;
@@ -113,7 +113,7 @@ export default function ApprovalResolution({
             <div>
               <span className="text-[#8b949e]">Status: </span>
               <span className="text-[#f0f6fc]">
-                {status === 'merged' ? 'Merged into main' : status === 'discarded' ? 'Remediation discarded' : status === 'reverted' ? 'Revert created' : 'Awaiting Approval'}
+                {status === 'merged' ? 'Merged into main ✓' : status === 'discarded' ? 'Remediation discarded' : status === 'reverted' ? 'Revert created' : 'Awaiting Approval'}
               </span>
             </div>
           </div>
@@ -142,9 +142,27 @@ export default function ApprovalResolution({
 
         {/* Status Result Notifications */}
         {status === 'merged' && (
-          <div className="p-4 bg-[#113216] border border-[#238636] rounded-lg font-mono text-xs text-[#3fb950] flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-            <span>Remediation branch successfully merged into <strong>main</strong>. Target branch updated.</span>
+          <div className="p-5 bg-[#113216] border border-[#238636] rounded-xl font-mono text-xs text-[#3fb950] flex items-center justify-between gap-4 shadow-lg">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="w-6 h-6 shrink-0 text-[#3fb950]" />
+              <div>
+                <h4 className="font-bold text-sm text-[#f0f6fc]">Remediation Completed & Verified ✓</h4>
+                <p className="text-[11px] text-[#3fb950] mt-0.5">
+                  Remediation branch successfully merged into <strong className="text-white">main</strong>. All downstream consumers updated.
+                </p>
+              </div>
+            </div>
+            {prUrl && (
+              <a
+                href={prUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold bg-[#238636] hover:bg-[#2ea043] text-white transition-all shrink-0 cursor-pointer shadow-md"
+              >
+                <span>View Merged PR</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
           </div>
         )}
 
@@ -200,7 +218,15 @@ export default function ApprovalResolution({
             </button>
           )}
 
-          {/* After-Merge Rollback Button */}
+          {/* Post-Merge: Completed / Done Action */}
+          {status === 'merged' && (
+            <div className="flex items-center justify-center gap-2 px-4 py-3.5 rounded-lg font-mono text-xs font-bold bg-[#113216] text-[#3fb950] border border-[#238636]">
+              <CheckCircle2 className="w-4 h-4 text-[#3fb950]" />
+              <span>Remediation Completed</span>
+            </div>
+          )}
+
+          {/* After-Merge Rollback Option */}
           {status === 'merged' && (
             <button
               onClick={handleRollback}
@@ -208,7 +234,7 @@ export default function ApprovalResolution({
               className="flex items-center justify-center gap-2 px-4 py-3.5 rounded-lg font-mono text-xs font-bold bg-[#342b10] hover:bg-[#4a3d16] text-[#d29922] border border-[#9e6a03] shadow-lg transition-all cursor-pointer disabled:opacity-50"
             >
               <RotateCcw className="w-4 h-4" />
-              {acting ? 'Creating Revert Commit...' : 'Rollback (Create Revert)'}
+              {acting ? 'Creating Revert Commit...' : 'Rollback (Revert)'}
             </button>
           )}
 
@@ -219,7 +245,7 @@ export default function ApprovalResolution({
               className="flex items-center justify-center gap-2 px-4 py-3.5 rounded-lg font-mono text-xs font-bold bg-[#21262d] hover:bg-[#30363d] text-[#f0f6fc] border border-[#30363d] transition-all cursor-pointer"
             >
               <RotateCcw className="w-4 h-4 text-[#58a6ff]" />
-              Restart Remediation Flow
+              Start New Demo Run
             </button>
           )}
         </div>
