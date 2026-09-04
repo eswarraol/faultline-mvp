@@ -68,6 +68,8 @@ export default function App() {
   // "Try Demo": Resets session and opens Repository Dashboard directly
   const handleTryDemo = async () => {
     await resetRepo();
+    setCurrentMode('local');
+    setActiveRepo('faultline-ai/payment-service');
     setSimulationData(null);
     setWorkflowState(null);
     setLogs([]);
@@ -192,6 +194,8 @@ const defaultTelemetryLogs = [
   // "Reset State": Wipes demo_repo disk state & session, and returns to Landing Page (Step 0)
   const handleReset = async () => {
     await resetRepo();
+    setCurrentMode('local');
+    setActiveRepo('faultline-ai/payment-service');
     setSimulationData(null);
     setWorkflowState(null);
     setLogs([]);

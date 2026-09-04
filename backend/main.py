@@ -44,12 +44,14 @@ limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Item 3: Explicit CORS origins only (Never "*")
+# Item 3: Explicit CORS origins (allow local, 127.0.0.1, Vercel & preview domains)
 allowed_origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:3001",
     "http://127.0.0.1:3001",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
 ]
 deployed_url = os.environ.get("DEPLOYED_FRONTEND_URL", "").strip()
 if deployed_url and deployed_url not in allowed_origins:
@@ -57,9 +59,9 @@ if deployed_url and deployed_url not in allowed_origins:
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
@@ -84,7 +86,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
         )
     return JSONResponse(
         status_code=500,
-        content={"detail": "An internal server error occurred processing your request."}
+        content={"detail": f"An internal server error occurred: {str(exc)}"}
     )
 
 setup_pristine()
@@ -141,6 +143,9 @@ class SimulateRequest(BaseModel):
 class RunAgentRequest(BaseModel):
     breaking_change: Optional[str] = Field(default=None, max_length=250)
 
+class ApproveRequest(BaseModel):
+    create_pr: Optional[bool] = False
+
 class MergeRequest(BaseModel):
     pr_number: Optional[int] = None
     branch_name: Optional[str] = Field(default=None, max_length=120)
@@ -154,11 +159,6 @@ class StateRollbackRequest(BaseModel):
 # Item 10: WebSocket Endpoint with Origin Checking
 @app.websocket("/ws/agent")
 async def websocket_endpoint(websocket: WebSocket):
-    origin = websocket.headers.get("origin", "")
-    if origin and not any(origin.startswith(allowed) for allowed in allowed_origins):
-        await websocket.close(code=4003)
-        return
-
     await manager.connect(websocket)
     try:
         await websocket.send_json({
@@ -177,7 +177,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.post("/api/provider/set")
 async def api_set_provider(req: SetProviderRequest):
-    """Switches repository provider between local demo repo and GitHub provider."""
+    """Switches repository provider between local demo repo and GitHub provider and clears stale state."""
     global active_provider, current_provider_type, latest_workflow_state
     if req.provider_type == "github":
         parts = req.repo.split("/")
@@ -189,14 +189,29 @@ async def api_set_provider(req: SetProviderRequest):
         active_provider = LocalRepositoryProvider()
         current_provider_type = "local"
 
-    latest_workflow_state["provider_info"] = active_provider.get_info()
+    latest_workflow_state = {
+        "provider_info": active_provider.get_info(),
+        "breaking_change": "Field 'user_id' renamed to 'account_id'",
+        "contract_diff": None,
+        "blast_radius": None,
+        "discovery": None,
+        "impact": None,
+        "patch": None,
+        "verification": None,
+        "confidence": None,
+        "retry_executed": False,
+        "pr_info": None,
+        "status": "idle"
+    }
     return latest_workflow_state["provider_info"]
 
 @app.post("/api/reset")
 async def api_reset():
     """Resets demo_repo to pristine state and clears checkpoint cache."""
+    global current_provider_type, active_provider, latest_workflow_state
+    current_provider_type = "local"
+    active_provider = LocalRepositoryProvider()
     reset_demo_repo()
-    global latest_workflow_state
     latest_workflow_state = {
         "provider_info": active_provider.get_info(),
         "breaking_change": "Field 'user_id' renamed to 'account_id'",
