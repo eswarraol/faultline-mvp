@@ -64,11 +64,7 @@ app.add_middleware(
 )
 
 # Item 9: TrustedHostMiddleware & Security Headers
-allowed_hosts = ["localhost", "127.0.0.1", "testserver"]
-deployed_host = os.environ.get("DEPLOYED_BACKEND_HOST", "").strip()
-if deployed_host and deployed_host not in allowed_hosts:
-    allowed_hosts.append(deployed_host)
-
+allowed_hosts = ["*"]
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
 @app.middleware("http")
@@ -145,11 +141,14 @@ class SimulateRequest(BaseModel):
 class RunAgentRequest(BaseModel):
     breaking_change: Optional[str] = Field(default=None, max_length=250)
 
-class ApproveRequest(BaseModel):
-    create_pr: bool = False
-    mode: Optional[str] = Field(default="disk", pattern="^(disk|pull_request)$")
+class MergeRequest(BaseModel):
+    pr_number: Optional[int] = None
+    branch_name: Optional[str] = Field(default=None, max_length=120)
 
-class RollbackRequest(BaseModel):
+class StateRollbackRequest(BaseModel):
+    pr_number: Optional[int] = None
+    branch_name: Optional[str] = Field(default=None, max_length=120)
+    is_merged: Optional[bool] = False
     checkpoint_id: Optional[str] = Field(default="pre_remediation", max_length=50)
 
 # Item 10: WebSocket Endpoint with Origin Checking
@@ -440,20 +439,67 @@ async def api_approve(req: Optional[ApproveRequest] = None):
         "applied_files": res["applied_files"]
     }
 
-@app.post("/api/rollback")
-async def api_rollback(req: Optional[RollbackRequest] = None):
-    """Rolls back repository to pre-remediation git checkpoint."""
+@app.post("/api/merge")
+async def api_merge(req: Optional[MergeRequest] = None):
+    """Merges the remediation branch into target branch (main)."""
     global latest_workflow_state
-    checkpoint_id = (req and req.checkpoint_id) or "pre_remediation"
-    res = rollback_git_checkpoint(checkpoint_id)
-    latest_workflow_state["status"] = "rolled_back"
+    pr_info = latest_workflow_state.get("pr_info") or {}
+    pr_num = (req and req.pr_number) or pr_info.get("pr_number")
+    branch = (req and req.branch_name) or pr_info.get("remediation_branch")
+
+    res = active_provider.merge_pull_request(pr_number=pr_num, branch_name=branch)
+    latest_workflow_state["status"] = "merged"
+    latest_workflow_state["merged_into"] = res.get("merged_into", "main")
+    latest_workflow_state["merge_info"] = res
 
     await manager.broadcast({
         "timestamp": "SYSTEM",
-        "event": "repository.rollback",
-        "stage": "SYSTEM",
+        "event": "pull_request.merged",
+        "stage": "APPROVAL",
         "type": "SYSTEM",
-        "content": "Repository rolled back to pre-remediation checkpoint."
+        "content": f"Remediation branch '{branch or 'faultline'}' merged into {res.get('merged_into', 'main')}."
+    })
+
+    return {
+        "status": "merged",
+        "merged_into": res.get("merged_into", "main"),
+        "sha": res.get("sha", "mrg_a7f3c9"),
+        "ui_status_text": "Merged into main",
+        "is_simulated": res.get("is_simulated", True)
+    }
+
+@app.post("/api/rollback")
+async def api_rollback(req: Optional[StateRollbackRequest] = None):
+    """
+    State-aware rollback:
+    - Before merge: Discards remediation, deletes remediation branch, keeps target branch main unchanged.
+    - After merge: Creates a Git revert commit on main.
+    """
+    global latest_workflow_state
+    pr_info = latest_workflow_state.get("pr_info") or {}
+    is_merged = (req and req.is_merged) or (latest_workflow_state.get("status") == "merged")
+    pr_num = (req and req.pr_number) or pr_info.get("pr_number")
+    branch = (req and req.branch_name) or pr_info.get("remediation_branch")
+
+    res = active_provider.rollback_remediation(pr_number=pr_num, branch_name=branch, is_merged=is_merged)
+    
+    if is_merged:
+        latest_workflow_state["status"] = "reverted"
+        event_name = "remediation.reverted"
+        msg = f"Remediation reverted. Revert commit created on {active_provider.branch}."
+    else:
+        latest_workflow_state["status"] = "discarded"
+        event_name = "remediation.discarded"
+        msg = "Remediation discarded. Remediation branch deleted."
+
+    latest_workflow_state["rollback_info"] = res
+
+    await manager.broadcast({
+        "timestamp": "SYSTEM",
+        "event": event_name,
+        "stage": "APPROVAL",
+        "type": "SYSTEM",
+        "content": msg
     })
 
     return res

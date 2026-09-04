@@ -14,6 +14,7 @@ import {
   simulateApiChange,
   runAgentWorkflow,
   approvePatch,
+  mergePullRequest,
   rollbackRepo,
   rejectPatch,
   resetRepo,
@@ -130,10 +131,33 @@ const defaultTelemetryLogs = [
     }
   };
 
-  const handleRollback = async () => {
+  const handleMerge = async () => {
     try {
-      await rollbackRepo();
-      setWorkflowState((prev) => ({ ...prev, status: 'rolled_back' }));
+      const prNum = workflowState?.pr_info?.pr_number;
+      const branch = workflowState?.pr_info?.remediation_branch || workflowState?.pr_info?.branch;
+      const res = await mergePullRequest(prNum, branch);
+      setWorkflowState((prev) => ({
+        ...prev,
+        status: 'merged',
+        merged_into: res.merged_into || 'main',
+        merge_info: res
+      }));
+    } catch (err) {
+      console.error('Merge error', err);
+    }
+  };
+
+  const handleRollback = async (prNumber, branchName, isMerged) => {
+    try {
+      const prNum = prNumber || workflowState?.pr_info?.pr_number;
+      const branch = branchName || workflowState?.pr_info?.remediation_branch || workflowState?.pr_info?.branch;
+      const merged = isMerged !== undefined ? isMerged : (workflowState?.status === 'merged');
+      const res = await rollbackRepo(prNum, branch, merged);
+      setWorkflowState((prev) => ({
+        ...prev,
+        status: res.status,
+        rollback_info: res
+      }));
     } catch (err) {
       console.error('Rollback error', err);
     }
@@ -289,10 +313,13 @@ const defaultTelemetryLogs = [
           <ApprovalResolution
             onApprove={handleApprove}
             onApprovePR={handleApprovePR}
-            onReject={handleReject}
+            onMerge={handleMerge}
             onRollback={handleRollback}
+            onReject={handleReject}
             status={workflowState?.status}
             prInfo={workflowState?.pr_info}
+            workflowState={workflowState}
+            activeRepo={activeRepo}
             appliedFiles={workflowState?.patch?.modified_files ? Object.keys(workflowState.patch.modified_files) : []}
             onReset={handleReset}
           />

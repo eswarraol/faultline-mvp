@@ -22,3 +22,11 @@ class RepositoryProvider(ABC):
     @abstractmethod
     def create_pull_request(self, title: str, body: str, modified_files: dict) -> dict:
         pass
+
+    @abstractmethod
+    def merge_pull_request(self, pr_number: int = None, branch_name: str = None) -> dict:
+        pass
+
+    @abstractmethod
+    def rollback_remediation(self, pr_number: int = None, branch_name: str = None, is_merged: bool = False) -> dict:
+        pass

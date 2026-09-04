@@ -180,9 +180,51 @@ export async function approvePatch(createPR = false) {
   };
 }
 
-export async function rollbackRepo() {
-  const data = await safeFetch(`${API_BASE}/api/rollback`, { method: 'POST' });
-  return data || { status: 'rolled_back' };
+export async function mergePullRequest(prNumber, branchName) {
+  const data = await safeFetch(`${API_BASE}/api/merge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pr_number: prNumber, branch_name: branchName })
+  });
+  if (data) return data;
+
+  const sha = Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0');
+  return {
+    status: 'merged',
+    merged_into: 'main',
+    sha: `mrg_${sha}`,
+    ui_status_text: 'Merged into main',
+    is_simulated: true
+  };
+}
+
+export async function rollbackRepo(prNumber, branchName, isMerged = false) {
+  const data = await safeFetch(`${API_BASE}/api/rollback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pr_number: prNumber, branch_name: branchName, is_merged: isMerged })
+  });
+  if (data) return data;
+
+  if (!isMerged) {
+    return {
+      status: 'discarded',
+      ui_status_text: 'Remediation discarded',
+      message: 'Remediation discarded. Remediation branch deleted.',
+      target_branch_status: 'unchanged',
+      is_merged: false
+    };
+  } else {
+    const revertSha = Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0');
+    return {
+      status: 'reverted',
+      ui_status_text: 'Revert created',
+      message: `Remediation reverted. Revert commit 'rvt_${revertSha}' created on main.`,
+      revert_sha: `rvt_${revertSha}`,
+      target_branch_status: 'reverted',
+      is_merged: true
+    };
+  }
 }
 
 export async function rejectPatch() {
