@@ -1,0 +1,19 @@
+{
+  "version": "1.0",
+  "endpoint": "/api/v1/customer",
+  "fields": {
+    "user_id": {
+      "type": "string",
+      "required": true,
+      "description": "Unique customer account identifier"
+    },
+    "email": {
+      "type": "string",
+      "required": true
+    },
+    "status": {
+      "type": "string",
+      "required": false
+    }
+  }
+}

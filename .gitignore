@@ -1,0 +1,29 @@
+# Security & Secrets
+.env
+*.env
+backend/.env
+frontend/.env
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Builds & Outputs
+dist/
+frontend/dist/
+build/
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# System & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
