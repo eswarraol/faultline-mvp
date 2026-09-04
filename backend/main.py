@@ -208,10 +208,8 @@ async def api_set_provider(req: SetProviderRequest):
 
 @app.post("/api/reset")
 async def api_reset():
-    """Resets demo_repo to pristine state and clears checkpoint cache."""
+    """Resets demo_repo to pristine state and clears workflow state."""
     global current_provider_type, active_provider, latest_workflow_state
-    current_provider_type = "local"
-    active_provider = LocalRepositoryProvider()
     reset_demo_repo()
     latest_workflow_state = {
         "provider_info": active_provider.get_info(),
@@ -234,7 +232,7 @@ async def api_reset():
         "type": "SYSTEM",
         "content": "Repository reset to pristine state."
     })
-    return {"status": "reset", "repo": "demo_repo"}
+    return {"status": "reset", "repo": active_provider.get_info().get("repo_name", "demo_repo")}
 
 # Item 4: Rate Limiting applied to /api/simulate
 @app.post("/api/simulate")

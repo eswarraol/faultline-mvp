@@ -13,10 +13,13 @@ MODEL_NAME = "Qwen/Qwen2.5-Coder-32B-Instruct"
 
 client = OpenAI(
     api_key=api_key if api_key and api_key != "your_featherless_api_key_here" else "dummy-key",
-    base_url="https://api.featherless.ai/v1"
+    base_url="https://api.featherless.ai/v1",
+    timeout=4.0
 )
 
 def is_featherless_configured() -> bool:
     """Returns True if a valid Featherless API key is present in .env."""
-    k = os.environ.get("FEATHERLESS_API_KEY", "")
-    return bool(k and k != "your_featherless_api_key_here" and len(k) > 10)
+    k = os.environ.get("FEATHERLESS_API_KEY", "").strip()
+    if not k or k in ("dummy-key", "your_featherless_api_key_here") or k.startswith("dummy") or len(k) < 15:
+        return False
+    return True

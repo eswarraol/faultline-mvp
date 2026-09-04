@@ -130,11 +130,16 @@ async def run_planner_loop(breaking_field_change: str, log_callback=None) -> dic
     while step < max_steps:
         step += 1
         try:
-            response = client.chat.completions.create(
-                model=MODEL_NAME,
-                messages=messages,
-                temperature=0.1,
-                max_tokens=500
+            import asyncio
+            response = await asyncio.wait_for(
+                asyncio.to_thread(
+                    client.chat.completions.create,
+                    model=MODEL_NAME,
+                    messages=messages,
+                    temperature=0.1,
+                    max_tokens=500
+                ),
+                timeout=3.0
             )
             raw_content = response.choices[0].message.content.strip()
             if raw_content.startswith("```"):
