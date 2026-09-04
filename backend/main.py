@@ -179,6 +179,7 @@ async def websocket_endpoint(websocket: WebSocket):
 async def api_set_provider(req: SetProviderRequest):
     """Switches repository provider between local demo repo and GitHub provider and clears stale state."""
     global active_provider, current_provider_type, latest_workflow_state
+    reset_demo_repo()
     if req.provider_type == "github":
         parts = req.repo.split("/")
         owner = parts[0] if len(parts) > 1 else "faultline-ai"
@@ -272,6 +273,7 @@ async def api_simulate(request: Request, body: Optional[SimulateRequest] = None)
 @limiter.limit("5/minute")
 async def api_run_agent(request: Request, body: Optional[RunAgentRequest] = None):
     """Runs the 5-stage autonomous AI remediation workflow with self-repair retry loop."""
+    reset_demo_repo()
     global latest_workflow_state
     breaking_change = (body and body.breaking_change) or latest_workflow_state.get("breaking_change", "Field 'user_id' renamed to 'account_id'")
 

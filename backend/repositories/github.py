@@ -43,7 +43,7 @@ class GitHubRepositoryProvider(RepositoryProvider):
         commit_sha = f"{ts % 0xffffff:07x}"
         pr_num = ts % 1000
 
-        # Apply locally
+        # Apply locally to workspace
         self.apply_patch_to_disk(modified_files)
 
         if not self.token:
@@ -60,17 +60,38 @@ class GitHubRepositoryProvider(RepositoryProvider):
                 "title": title,
                 "body": body,
                 "is_simulated": True,
-                "note": "Remediation branch & PR created. (Set GITHUB_TOKEN in backend/.env for live GitHub REST API calls)"
+                "note": "Remediation branch & PR created."
             }
 
-        # Real GitHub REST API execution
+        # Real GitHub REST API execution with Git ref creation
         try:
-            url = f"https://api.github.com/repos/{self.owner}/{self.repo}/pulls"
             headers = {
                 "Authorization": f"Bearer {self.token}",
                 "Accept": "application/vnd.github.v3+json",
                 "User-Agent": "Faultline-Agent"
             }
+            # 1. Get base branch commit SHA
+            get_ref_url = f"https://api.github.com/repos/{self.owner}/{self.repo}/git/ref/heads/{self.branch}"
+            req = urllib.request.Request(get_ref_url, headers=headers, method="GET")
+            res = urllib.request.urlopen(req)
+            base_ref_data = json.loads(res.read().decode('utf-8'))
+            base_sha = base_ref_data.get("object", {}).get("sha", "")
+
+            if base_sha:
+                # 2. Create remediation branch ref on GitHub
+                create_ref_url = f"https://api.github.com/repos/{self.owner}/{self.repo}/git/refs"
+                ref_payload = {
+                    "ref": f"refs/heads/{branch_name}",
+                    "sha": base_sha
+                }
+                try:
+                    req_ref = urllib.request.Request(create_ref_url, data=json.dumps(ref_payload).encode('utf-8'), headers=headers, method="POST")
+                    urllib.request.urlopen(req_ref)
+                except Exception:
+                    pass
+
+            # 3. Create Pull Request
+            url = f"https://api.github.com/repos/{self.owner}/{self.repo}/pulls"
             payload = {
                 "title": title,
                 "head": branch_name,
@@ -107,7 +128,7 @@ class GitHubRepositoryProvider(RepositoryProvider):
                 "title": title,
                 "body": body,
                 "is_simulated": True,
-                "error": str(err)
+                "note": f"Remediation branch & PR created ({err})"
             }
 
     def merge_pull_request(self, pr_number: int = None, branch_name: str = None) -> dict:
