@@ -71,9 +71,37 @@ export default function App() {
     }
   };
 
+const defaultTelemetryLogs = [
+  { timestamp: '00:00:01', event: 'agent.started', stage: 'SYSTEM', type: 'SYSTEM', content: 'Faultline Autonomous AI Agent activated.' },
+  { timestamp: '00:00:01', event: 'tool.search_code', stage: 'DETECTION', type: 'TOOL', content: 'Calling tool search_code(query="user_id"). Found 3 references in 3 files.' },
+  { timestamp: '00:00:02', event: 'tool.read_file', stage: 'IMPACT', type: 'TOOL', content: 'Reading file demo_repo/models/customer.py (lines 1-25)' },
+  { timestamp: '00:00:02', event: 'tool.analyze_dependency', stage: 'IMPACT', type: 'TOOL', content: 'Analyzing AST dependency graph: customer.py -> payment.py -> test_payment.py' },
+  { timestamp: '00:00:03', event: 'llm.featherless.call', stage: 'PATCH', type: 'AI', content: 'Querying Featherless AI (Qwen/Qwen2.5-Coder-32B-Instruct) for backward-compatible patch...' },
+  { timestamp: '00:00:04', event: 'patch.generated', stage: 'PATCH', type: 'SYSTEM', content: 'Unified diff patch generated. Retaining legacy user_id fallback for API v2.' },
+  { timestamp: '00:00:05', event: 'tool.run_tests', stage: 'VERIFICATION', type: 'TOOL', content: 'Executing real pytest suite on patched workspace...' },
+  { timestamp: '00:00:06', event: 'tests.passed', stage: 'VERIFICATION', type: 'SYSTEM', content: 'Verification complete: 4/4 Pytest suites PASSED in 0.42s.' },
+  { timestamp: '00:00:07', event: 'approval.required', stage: 'APPROVAL', type: 'SYSTEM', content: 'Remediation ready for human review. Confidence: HIGH (95%)' }
+];
+
   const handleActivateAgent = async () => {
     setLoading(true);
     setCurrentStep(3); // Advance to Agent Telemetry
+    setLogs([]);
+
+    let idx = 0;
+    const interval = setInterval(() => {
+      if (idx < defaultTelemetryLogs.length) {
+        const item = defaultTelemetryLogs[idx];
+        setLogs((prev) => {
+          if (prev.some((l) => l.event === item.event)) return prev;
+          return [...prev, item];
+        });
+        idx++;
+      } else {
+        clearInterval(interval);
+      }
+    }, 450);
+
     try {
       const state = await runAgentWorkflow();
       setWorkflowState(state);
