@@ -44,8 +44,24 @@ export default function App() {
   const handleConnectGitHub = async (repoName, token) => {
     setActiveRepo(repoName);
     setCurrentMode('github');
+    await resetRepo();
+    setSimulationData(null);
+    setLogs([]);
     const info = await setProvider('github', repoName);
-    setWorkflowState((prev) => ({ ...prev, provider_info: info }));
+    setWorkflowState({
+      provider_info: info,
+      breaking_change: "Field 'user_id' renamed to 'account_id'",
+      contract_diff: null,
+      blast_radius: null,
+      discovery: null,
+      impact: null,
+      patch: null,
+      verification: null,
+      confidence: null,
+      retry_executed: false,
+      pr_info: null,
+      status: 'idle'
+    });
     setCurrentStep(1); // Advance to Repository Dashboard
   };
 
