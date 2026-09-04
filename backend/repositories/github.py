@@ -3,6 +3,7 @@
 import os
 import time
 import json
+import base64
 import urllib.request
 from repositories.base import RepositoryProvider
 from repositories.local import LocalRepositoryProvider
@@ -63,7 +64,7 @@ class GitHubRepositoryProvider(RepositoryProvider):
                 "note": "Remediation branch & PR created."
             }
 
-        # Real GitHub REST API execution with Git ref creation
+        # Real GitHub REST API execution with Git ref creation & file commits
         try:
             headers = {
                 "Authorization": f"Bearer {self.token}",
@@ -89,6 +90,34 @@ class GitHubRepositoryProvider(RepositoryProvider):
                     urllib.request.urlopen(req_ref)
                 except Exception:
                     pass
+
+                # 2b. Commit modified files to the remediation branch on GitHub
+                for rel_path, file_content in modified_files.items():
+                    try:
+                        clean_path = rel_path.replace("\\", "/").lstrip("/")
+                        content_url = f"https://api.github.com/repos/{self.owner}/{self.repo}/contents/{clean_path}?ref={branch_name}"
+                        file_sha = None
+                        try:
+                            req_get = urllib.request.Request(content_url, headers=headers, method="GET")
+                            res_get = urllib.request.urlopen(req_get)
+                            existing_data = json.loads(res_get.read().decode('utf-8'))
+                            file_sha = existing_data.get("sha")
+                        except Exception:
+                            pass
+
+                        put_url = f"https://api.github.com/repos/{self.owner}/{self.repo}/contents/{clean_path}"
+                        put_payload = {
+                            "message": f"fix(api): remediate breaking change in {clean_path}",
+                            "content": base64.b64encode(file_content.encode('utf-8')).decode('utf-8'),
+                            "branch": branch_name
+                        }
+                        if file_sha:
+                            put_payload["sha"] = file_sha
+
+                        req_put = urllib.request.Request(put_url, data=json.dumps(put_payload).encode('utf-8'), headers=headers, method="PUT")
+                        urllib.request.urlopen(req_put)
+                    except Exception:
+                        pass
 
             # 3. Create Pull Request
             url = f"https://api.github.com/repos/{self.owner}/{self.repo}/pulls"

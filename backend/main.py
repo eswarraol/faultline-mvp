@@ -238,7 +238,7 @@ async def api_reset():
 
 # Item 4: Rate Limiting applied to /api/simulate
 @app.post("/api/simulate")
-@limiter.limit("5/minute")
+@limiter.limit("100/minute")
 async def api_simulate(request: Request, body: Optional[SimulateRequest] = None):
     """Simulates API v1 -> v2 change detection by computing contract diff & blast radius."""
     reset_demo_repo()
@@ -270,7 +270,7 @@ async def api_simulate(request: Request, body: Optional[SimulateRequest] = None)
 
 # Item 4: Rate Limiting applied to /api/run-agent
 @app.post("/api/run-agent")
-@limiter.limit("5/minute")
+@limiter.limit("100/minute")
 async def api_run_agent(request: Request, body: Optional[RunAgentRequest] = None):
     """Runs the 5-stage autonomous AI remediation workflow with self-repair retry loop."""
     reset_demo_repo()
