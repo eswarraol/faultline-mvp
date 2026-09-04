@@ -61,6 +61,7 @@ export default function App() {
   const handleSimulate = async () => {
     setLoading(true);
     setLogs([]);
+    setWorkflowState(null);
     try {
       const data = await simulateApiChange();
       setSimulationData(data);
